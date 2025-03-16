@@ -121,11 +121,12 @@ const UserList = () => {
 
       {/* 🚀 Logout Button */}
       <button
-        onClick={handleLogout}
-        className="flex items-center justify-center gap-2 p-2 mt-4 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-all"
-      >
-        <LogOut size={20} /> Logout
-      </button>
+  onClick={handleLogout}
+  className="fixed bottom-4 left-4 flex items-center justify-center gap-2 py-3 px-22 mt-4 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-all"
+>
+  <LogOut size={20} /> Logout
+</button>
+
     </div>
   );
 };

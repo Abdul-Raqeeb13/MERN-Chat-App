@@ -29,7 +29,8 @@ const Login = () => {
         localStorage.setItem("user", JSON.stringify(response.data.userData));
       
         console.log("User logged in, navigating..."); // Debugging
-        navigate("/"); // Redirect after login
+        window.location.reload(); // Reload the page to reset state
+        // navigate("/"); // Redirect after login
       }
        else {
         setError(response.data.message || "Login failed. Try again.");
