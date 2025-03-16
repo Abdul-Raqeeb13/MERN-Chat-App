@@ -37,15 +37,11 @@ io.on("connection", (socket) => {
     console.log("User connected !!", socket.id);
 
     const userId = socket.handshake.query.userId;
-    console.log("userid", userId);
 
 
-    if (userId != "undefined" || userId != null || userId != "") {
+    if (userId && userId !== "undefined") {
         userSocketMap[userId] = socket.id;
-        console.log("socket map", userSocketMap);
-
         io.emit("getOnlineUsers", Object.keys(userSocketMap));
-        // io.to(userSocketMap[userId]).emit("message", "Welcome to the chat !!");
 
     }
 
@@ -54,20 +50,32 @@ io.on("connection", (socket) => {
         io.emit("message", data);
     });
 
-    socket.on("userTyping", ({ senderId }) => {  // sendId is loginuserid the person which one is login
-       
-        socket.broadcast.emit("userTyping", { senderId });  // loginuserid
-      });
-    
-      socket.on("stopTyping", ({ senderId }) => {
-        socket.broadcast.emit("stopTyping", { senderId });
-      });
+    socket.on("userTyping", ({ senderId, receiverId }) => {
 
-    socket.on("disconnect", () => {
-        delete userSocketMap[userId];
-        io.emit("getOnlineUsers", Object.keys(userSocketMap));
-        console.log("User disconnected !!");
+        // Emit only to the receiver, NOT to everyone
+        const receiverSocketId = userSocketMap[receiverId]; // Get the receiver's socket ID
+
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("userTyping", { senderId });
+        }
     });
+
+    socket.on("stopTyping", ({ senderId, receiverId }) => {
+        const receiverSocketId = userSocketMap[receiverId]; // Get the receiver's socket ID
+        console.log(receiverSocketId);
+
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("userTyping", { senderId });
+        }
+    });
+
+    socket.on("stopTyping", ({ senderId, receiverId }) => {
+        const receiverSocketId = userSocketMap[receiverId];
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("stopTyping", { senderId }); // ✅ Correct event
+        }
+    });
+
 });
 
 export { app, io, server };

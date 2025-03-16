@@ -40,7 +40,7 @@ const ChatWindow = () => {
       setTypingUser(null);
     });
 
-    
+
 
     return () => {
       socket?.off("newMessage");
@@ -51,52 +51,50 @@ const ChatWindow = () => {
 
   useEffect(() => {
     if (!socket || !selectedUser) return;
-  
+
     const handleTyping = ({ senderId }) => {
-      // senderId => loginUserID
-      console.log("Typing event from:", senderId);  // The person who is typing
-      console.log("Logged-in user ID:", loginUserId);
-      console.log("Selected user ID:", selectedUser?._id);
-      ;
-      if (senderId === selectedUser._id) {
-        setTypingUser(true); // Show typing only if the selected user is typing
+      if (selectedUser && senderId === selectedUser._id) {
+        setTypingUser(senderId); // ✅ Store senderId
       }
     };
-  
     const handleStopTyping = ({ senderId }) => {
       if (senderId === selectedUser._id) {
-        setTypingUser(false); // Hide typing when they stop
+        setTypingUser(null); // ✅ Set to null when user stops typing
       }
     };
-  
+
+
     socket.on("userTyping", handleTyping);
-    console.log(handleTyping);
-    
+
     socket.on("stopTyping", handleStopTyping);
-  
+
     return () => {
       socket.off("userTyping", handleTyping);
       socket.off("stopTyping", handleStopTyping);
     };
   }, [socket, selectedUser]);
-  
+
   // Reset typing indicator when switching users
   useEffect(() => {
     setTypingUser(false);
   }, [selectedUser]);
-  
+
 
   const handleChange = (e) => {
-    socket.emit("userTyping", { senderId: loginUserId });  // loginuserID
+    if (selectedUser?._id) {
+      socket.emit("userTyping", { senderId: loginUserId, receiverId: selectedUser._id });
+    }
   };
 
   const handleBlur = () => {
-    socket.emit("stopTyping", { senderId: loginUserId });
+    socket.emit("stopTyping", {
+      senderId: loginUserId,
+      receiverId: selectedUser?._id, // Stop typing notification for selected user
+    });
   };
 
+
   const [typingUser, setTypingUser] = useState(null);
-
-
 
   // Send message function
   const sendMessage = async () => {
@@ -130,24 +128,24 @@ const ChatWindow = () => {
       {selectedUser ? (
         <>
           <div className="p-4 bg-blue-600 text-white text-lg font-semibold rounded-t-lg">
-  <div>{selectedUser.username}</div>
-  {typingUser && (
-    <div className="text-gray-300 text-sm mt-1">typing...</div>
-  )}
-</div>
+            <div>{selectedUser.username}</div>
+            {typingUser === selectedUser._id && (
+              <div className="text-gray-300 text-sm mt-1">typing...</div>
+            )}
 
-          
+          </div>
+
+
           <div className="flex-1 p-4 overflow-y-auto space-y-3">
             {[...messages]
               .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
               .map((msg, index) => (
                 <div key={index} className={`flex ${msg.senderId === loginUserId ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`p-3 rounded-lg shadow max-w-sm w-fit break-words whitespace-pre-wrap ${
-                      msg.senderId === loginUserId
+                    className={`p-3 rounded-lg shadow max-w-sm w-fit break-words whitespace-pre-wrap ${msg.senderId === loginUserId
                         ? "bg-blue-500 text-white rounded-br-none"
                         : "bg-gray-300 text-black rounded-bl-none"
-                    }`}
+                      }`}
                   >
                     <p className="text-sm">{msg.text}</p>
                     <span className="text-xs opacity-70 block text-right mt-1">
@@ -166,7 +164,7 @@ const ChatWindow = () => {
               ref={inputRef}
               onChange={handleChange}
               onBlur={handleBlur}
-               // 🔹 Set ref instead of useState
+              // 🔹 Set ref instead of useState
               className="flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 text-gray-700"
               placeholder="Type a message..."
             />
