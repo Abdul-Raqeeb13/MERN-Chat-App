@@ -1,9 +1,10 @@
-import { Send } from "lucide-react"; // Import send icon
-import { useSelector, useDispatch } from "react-redux";
-import { useState, useEffect, useRef } from "react";
+import { useRef, useEffect, useState } from "react";
+import { Send } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import { addMessage } from "../redux/chatSlice";
 import { useSocketContext } from "../Context/SocketContext";
+import notificationSound from "../assets/sounds/NotificationSound.mp3";
 
 const ChatWindow = () => {
   const selectedUser = useSelector((state) => state.chat.selectedUser);
@@ -11,48 +12,108 @@ const ChatWindow = () => {
   const dispatch = useDispatch();
   const loginUser = JSON.parse(localStorage.getItem("user"));
   const loginUserId = loginUser?._id;
-  const [messageText, setMessageText] = useState("");
-  const messagesEndRef = useRef(null);
   const { socket } = useSocketContext();
+
+  const inputRef = useRef(null); // 🔹 Reference for input field
+  const messagesEndRef = useRef(null); // 🔹 Reference for auto-scroll
 
   // Auto-scroll to the latest message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // Listen for incoming messages
   useEffect(() => {
-    if (!socket) return; // Prevents calling 'on' on undefined
-  
-    // run whern user receving a message
-    socket.on("newMessage", (newMessage) => {
+    if (!socket) return;
+
+    socket?.on("newMessage", (newMessage) => {
+      const sound = new Audio(notificationSound);
+      sound.play();
       dispatch(addMessage({ message: newMessage }));
     });
-  
+
+    socket?.on("userTyping", ({ senderId }) => {
+      setTypingUser(senderId);
+    });
+
+    socket?.on("stopTyping", ({ senderId }) => {
+      setTypingUser(null);
+    });
+
+    
+
     return () => {
       socket?.off("newMessage");
+      socket.off("userTyping");
+      socket.off("stopTyping");
     };
   }, [socket, dispatch]);
 
+  useEffect(() => {
+    if (!socket || !selectedUser) return;
   
+    const handleTyping = ({ senderId }) => {
+      // senderId => loginUserID
+      console.log("Typing event from:", senderId);  // The person who is typing
+      console.log("Logged-in user ID:", loginUserId);
+      console.log("Selected user ID:", selectedUser?._id);
+      ;
+      if (senderId === selectedUser._id) {
+        setTypingUser(true); // Show typing only if the selected user is typing
+      }
+    };
+  
+    const handleStopTyping = ({ senderId }) => {
+      if (senderId === selectedUser._id) {
+        setTypingUser(false); // Hide typing when they stop
+      }
+    };
+  
+    socket.on("userTyping", handleTyping);
+    console.log(handleTyping);
+    
+    socket.on("stopTyping", handleStopTyping);
+  
+    return () => {
+      socket.off("userTyping", handleTyping);
+      socket.off("stopTyping", handleStopTyping);
+    };
+  }, [socket, selectedUser]);
+  
+  // Reset typing indicator when switching users
+  useEffect(() => {
+    setTypingUser(false);
+  }, [selectedUser]);
+  
+
+  const handleChange = (e) => {
+    socket.emit("userTyping", { senderId: loginUserId });  // loginuserID
+  };
+
+  const handleBlur = () => {
+    socket.emit("stopTyping", { senderId: loginUserId });
+  };
+
+  const [typingUser, setTypingUser] = useState(null);
+
+
+
   // Send message function
   const sendMessage = async () => {
-    if (!messageText.trim() || !selectedUser) return;
+    const messageText = inputRef.current.value.trim(); // 🔹 Get value from ref
+    if (!messageText || !selectedUser) return;
 
-    const newMessage = { 
+    const newMessage = {
       senderId: loginUserId,
-      receiverId: selectedUser._id,  
-      text: messageText.trim(),
+      receiverId: selectedUser._id,
+      text: messageText,
       createdAt: new Date().toISOString(),
     };
 
-    // run whe  user send a message Optimistically update the UI
-    dispatch(addMessage({ message: newMessage }));
+    dispatch(addMessage({ message: newMessage })); // Optimistic UI update
 
-    // Clear input field
-    setMessageText("");
+    inputRef.current.value = ""; // 🔹 Clear input field without triggering re-render
 
-    // Send message to the backend
     try {
       await axios.post(
         `http://localhost:8000/user/sendMessage/${selectedUser._id}`,
@@ -68,19 +129,21 @@ const ChatWindow = () => {
     <div className="w-3/4 flex flex-col h-screen bg-gray-100 shadow-lg rounded-lg">
       {selectedUser ? (
         <>
-          <div className="p-4 bg-blue-600 text-white text-lg font-semibold flex items-center rounded-t-lg">
-            Chat with {selectedUser.username}
-          </div>
+          <div className="p-4 bg-blue-600 text-white text-lg font-semibold rounded-t-lg">
+  <div>{selectedUser.username}</div>
+  {typingUser && (
+    <div className="text-gray-300 text-sm mt-1">typing...</div>
+  )}
+</div>
+
+          
           <div className="flex-1 p-4 overflow-y-auto space-y-3">
             {[...messages]
               .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
               .map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex ${msg.senderId === loginUserId ? "justify-end" : "justify-start"}`}
-                >
+                <div key={index} className={`flex ${msg.senderId === loginUserId ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`p-3 rounded-lg shadow max-w-xs ${
+                    className={`p-3 rounded-lg shadow max-w-sm w-fit break-words whitespace-pre-wrap ${
                       msg.senderId === loginUserId
                         ? "bg-blue-500 text-white rounded-br-none"
                         : "bg-gray-300 text-black rounded-bl-none"
@@ -98,16 +161,15 @@ const ChatWindow = () => {
 
           {/* Message Input Section */}
           <div className="p-4 bg-white flex items-center border-t rounded-b-lg">
-            {/* Input Field */}
             <input
               type="text"
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
+              ref={inputRef}
+              onChange={handleChange}
+              onBlur={handleBlur}
+               // 🔹 Set ref instead of useState
               className="flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 text-gray-700"
               placeholder="Type a message..."
             />
-            
-            {/* Send Button */}
             <button
               onClick={sendMessage}
               className="ml-3 px-5 py-3 bg-blue-600 text-white font-medium rounded-full shadow-md flex items-center gap-2 hover:bg-blue-700 transition-all duration-300"

@@ -42,7 +42,7 @@ io.on("connection", (socket) => {
 
     if (userId != "undefined" || userId != null || userId != "") {
         userSocketMap[userId] = socket.id;
-        console.log("xocket map", userSocketMap);
+        console.log("socket map", userSocketMap);
 
         io.emit("getOnlineUsers", Object.keys(userSocketMap));
         // io.to(userSocketMap[userId]).emit("message", "Welcome to the chat !!");
@@ -53,6 +53,15 @@ io.on("connection", (socket) => {
         console.log(data);
         io.emit("message", data);
     });
+
+    socket.on("userTyping", ({ senderId }) => {  // sendId is loginuserid the person which one is login
+       
+        socket.broadcast.emit("userTyping", { senderId });  // loginuserid
+      });
+    
+      socket.on("stopTyping", ({ senderId }) => {
+        socket.broadcast.emit("stopTyping", { senderId });
+      });
 
     socket.on("disconnect", () => {
         delete userSocketMap[userId];
