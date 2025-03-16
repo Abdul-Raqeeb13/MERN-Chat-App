@@ -2,9 +2,9 @@ import React, { useState, createContext, useContext, useEffect } from "react";
 import { useAuthContext } from "./authContext";
 import io from "socket.io-client";
 
-export const SocketContext = createContext();
+const SocketContext = createContext();
 
-const useSocketContext = () => {
+export const useSocketContext = () => {
     return useContext(SocketContext);
 }
 
@@ -25,6 +25,7 @@ export const SocketContextProvider = ({ children }) => {
 
             // Get online users from the server and set the state variable onlineUsers to the list of online users 
             socket.on("getOnlineUsers", (users) => {
+                
                 setOnlineUsers(users);
             })
 
@@ -38,7 +39,7 @@ export const SocketContextProvider = ({ children }) => {
                 setSocket(null);
             }
         }
-    },[]);
+    },[authUser]);
 
     return (
         <SocketContext.Provider value={{ socket, onlineUsers }}>

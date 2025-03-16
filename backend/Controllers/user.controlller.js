@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { User } from "../Models/user.model.js";
 import { Conversation } from "../Models/conversation.model.js";
 import { Message } from "../Models/message.model.js";
+import { getReceiverSocketId, io } from "../Socket/socket.js";
 
 
 const signup = async (req, res) => {
@@ -39,8 +40,6 @@ const signup = async (req, res) => {
     });
 
 }
-
-
 
 const login = async (req, res) => {
     const { email, password } = req.body;
@@ -95,6 +94,11 @@ const login = async (req, res) => {
     });
 };
 
+const logout = async(req, res)=>{
+    res.clearCookie("accessToken"); // Clears auth token if stored in cookies
+  
+  return res.status(200).json({ message: "Logout successful" });
+}
 const createConversation = async (req, res) => {
     try {
         const senderId = new mongoose.Types.ObjectId(req.user._id);
@@ -192,6 +196,11 @@ const sendMessage = async (req, res) => {
         room.messagesId.push(message._id);
         await room.save();
 
+        const receiverSocketId = getReceiverSocketId(receiverId)
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("newMessage", message)
+        }
+
         return res.status(200).json({
             success: true,
             message: "Message sent successfully.",
@@ -218,4 +227,4 @@ const getAllUsers = async (req, res) => {
 }
 
 
-export { signup, login, createConversation, sendMessage, getAllUsers }
+export { signup, login, createConversation, sendMessage, getAllUsers , logout}

@@ -1,46 +1,67 @@
 import { Send } from "lucide-react"; // Import send icon
 import { useSelector, useDispatch } from "react-redux";
-import { useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { addMessage } from "../redux/chatSlice";
+import { useSocketContext } from "../Context/SocketContext";
 
 const ChatWindow = () => {
   const selectedUser = useSelector((state) => state.chat.selectedUser);
   const messages = useSelector((state) => state.chat.messages || []);
   const dispatch = useDispatch();
   const loginUser = JSON.parse(localStorage.getItem("user"));
-  const loginUserId = loginUser._id;
-  const messageTextRef = useRef("");
+  const loginUserId = loginUser?._id;
+  const [messageText, setMessageText] = useState("");
   const messagesEndRef = useRef(null);
+  const { socket } = useSocketContext();
 
+  // Auto-scroll to the latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Listen for incoming messages
+  useEffect(() => {
+    if (!socket) return; // Prevents calling 'on' on undefined
+  
+    // run whern user receving a message
+    socket.on("newMessage", (newMessage) => {
+      dispatch(addMessage({ message: newMessage }));
+    });
+  
+    return () => {
+      socket?.off("newMessage");
+    };
+  }, [socket, dispatch]);
+
+  
+  // Send message function
   const sendMessage = async () => {
-
-
-    const text = messageTextRef.current.value.trim();
-    if (!text || !selectedUser) return;
-
-    const date = new Date();
-    const isoString = date.toISOString();
-    
+    if (!messageText.trim() || !selectedUser) return;
 
     const newMessage = { 
       senderId: loginUserId,
       receiverId: selectedUser._id,  
-      text,
-      createdAt: isoString,
-     };
-    dispatch(addMessage({ message: newMessage }));
-    messageTextRef.current.value = "";
+      text: messageText.trim(),
+      createdAt: new Date().toISOString(),
+    };
 
-    await axios.post(
-      `http://localhost:8000/user/sendMessage/${selectedUser._id}`,
-      { text },
-      { withCredentials: true, headers: { "Content-Type": "application/json" } }
-    );
+    // run whe  user send a message Optimistically update the UI
+    dispatch(addMessage({ message: newMessage }));
+
+    // Clear input field
+    setMessageText("");
+
+    // Send message to the backend
+    try {
+      await axios.post(
+        `http://localhost:8000/user/sendMessage/${selectedUser._id}`,
+        { text: messageText },
+        { withCredentials: true, headers: { "Content-Type": "application/json" } }
+      );
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
   };
 
   return (
@@ -75,25 +96,26 @@ const ChatWindow = () => {
             <div ref={messagesEndRef} />
           </div>
 
-<div className="p-4 bg-white flex items-center border-t rounded-b-lg">
-  {/* Input Field */}
-  <input
-    type="text"
-    ref={messageTextRef}
-    className="flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 text-gray-700"
-    placeholder="Type a message..."
-  />
-  
-  {/* Send Button */}
-  <button
-    onClick={sendMessage}
-    className="ml-3 px-5 py-3 bg-blue-600 text-white font-medium rounded-full shadow-md flex items-center gap-2 hover:bg-blue-700 transition-all duration-300"
-  >
-    <span>Send</span>
-    <Send size={20} />
-  </button>
-</div>
-
+          {/* Message Input Section */}
+          <div className="p-4 bg-white flex items-center border-t rounded-b-lg">
+            {/* Input Field */}
+            <input
+              type="text"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 text-gray-700"
+              placeholder="Type a message..."
+            />
+            
+            {/* Send Button */}
+            <button
+              onClick={sendMessage}
+              className="ml-3 px-5 py-3 bg-blue-600 text-white font-medium rounded-full shadow-md flex items-center gap-2 hover:bg-blue-700 transition-all duration-300"
+            >
+              <span>Send</span>
+              <Send size={20} />
+            </button>
+          </div>
         </>
       ) : (
         <div className="flex items-center justify-center h-full text-gray-500 text-lg">
