@@ -10,6 +10,10 @@ const UserList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const selectedUser = useSelector((state) => state.chat.selectedUser);
   const dispatch = useDispatch();
+  const {onlineUsers} = useSocketContext();
+
+  // Check if selected user is online or not to display online status in the user list 
+  // const isOnline = onlineUsers.some((user) => user.userId === selectedUser?._id);
 
   useEffect(() => {
     const loginUser = JSON.parse(localStorage.getItem("user"));
@@ -62,7 +66,7 @@ const UserList = () => {
       {/* 🔍 Search Input */}
       <div className="relative p-3 bg-gray-100 rounded-lg mb-4">
   {/* Search Icon */}
-  <Search className="absolute left-6 top-1/2 transform -translate-y-1/2 text-gray-400" size={24} />
+  <Search className="absolute left-6 top-1/2 transform -translate-y-1/2 text-gray-400" size={24 } />
   
   {/* Input Field */}
   <input

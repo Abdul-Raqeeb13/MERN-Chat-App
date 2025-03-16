@@ -3,9 +3,6 @@ import { User } from "../Models/user.model.js";
 const authMiddleware = async (req, res, next) => {
     const accessToken = req.cookies.accessToken;
 
-    console.log(accessToken);
-    
-
     if (!accessToken) {
         return res.status(401).json({
             success: false,

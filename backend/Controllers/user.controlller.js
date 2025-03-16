@@ -71,8 +71,6 @@ const login = async (req, res) => {
     }
 
     const accessToken = await userExist.generateAccessToken();
-    console.log(accessToken);
-
     if (!accessToken) {
         return res.status(500).json({
             success: false,
@@ -98,14 +96,9 @@ const login = async (req, res) => {
 };
 
 const createConversation = async (req, res) => {
-    console.log("running");
-    
     try {
         const senderId = new mongoose.Types.ObjectId(req.user._id);
         const receiverId = new mongoose.Types.ObjectId(req.params.id);
-
-        console.log(senderId, receiverId);
-        
 
         // 🔍 Fetch the conversation along with messages using aggregation
         let room = await Conversation.aggregate([
