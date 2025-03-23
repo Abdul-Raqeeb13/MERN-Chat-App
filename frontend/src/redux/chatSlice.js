@@ -18,6 +18,7 @@ const chatSlice = createSlice({
     // Add new message
     addMessage: (state, action) => {
       const { message } = action.payload;
+      
       if (state.messages.length == 0) {
         state.messages = [];
       }

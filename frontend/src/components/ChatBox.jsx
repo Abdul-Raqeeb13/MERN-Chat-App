@@ -16,8 +16,38 @@ const ChatWindow = () => {
 
   const inputRef = useRef(null); // 🔹 Reference for input field
   const messagesEndRef = useRef(null); // 🔹 Reference for auto-scroll
+  const [showModal, setShowModal] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+
+  const openDeleteModal = (message) => {
+    setSelectedMessage(message);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedMessage(null);
+  };
+
+  // const handleDelete = async (actionType) => {
+  //   if (!selectedMessage) return;
+
+  //   try {
+  //     await axios.delete(`http://localhost:8000/messages/${selectedMessage._id}`, {
+  //       data: { actionType, userId: loginUserId },
+  //       withCredentials: true,
+  //     });
+
+  //     dispatch(removeMessage({ messageId: selectedMessage._id }));
+  //     closeModal();
+  //   } catch (error) {
+  //     console.error("Failed to delete message:", error);
+  //   }
+  // };
+
 
   // Auto-scroll to the latest message
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -49,6 +79,7 @@ const ChatWindow = () => {
     };
   }, [socket, dispatch]);
 
+  // handle typing status
   useEffect(() => {
     if (!socket || !selectedUser) return;
 
@@ -79,13 +110,14 @@ const ChatWindow = () => {
     setTypingUser(false);
   }, [selectedUser]);
 
-
+  // when user start typing message
   const handleChange = (e) => {
     if (selectedUser?._id) {
       socket.emit("userTyping", { senderId: loginUserId, receiverId: selectedUser._id });
     }
   };
 
+  // when user stop typing message
   const handleBlur = () => {
     socket.emit("stopTyping", {
       senderId: loginUserId,
@@ -93,6 +125,11 @@ const ChatWindow = () => {
     });
   };
 
+  const handleDelete = (messageId) => {
+    // console.log("Delete");
+    // console.log(messageId);
+
+  }
 
   const [typingUser, setTypingUser] = useState(null);
 
@@ -101,23 +138,16 @@ const ChatWindow = () => {
     const messageText = inputRef.current.value.trim(); // 🔹 Get value from ref
     if (!messageText || !selectedUser) return;
 
-    const newMessage = {
-      senderId: loginUserId,
-      receiverId: selectedUser._id,
-      text: messageText,
-      createdAt: new Date().toISOString(),
-    };
-
-    dispatch(addMessage({ message: newMessage })); // Optimistic UI update
-
-    inputRef.current.value = ""; // 🔹 Clear input field without triggering re-render
-
     try {
-      await axios.post(
+      const res = await axios.post(
         `http://localhost:8000/user/sendMessage/${selectedUser._id}`,
         { text: messageText },
         { withCredentials: true, headers: { "Content-Type": "application/json" } }
       );
+      dispatch(addMessage({ message: res.data.data })); // Optimistic UI update
+
+      inputRef.current.value = ""; // 🔹 Clear input field without triggering re-render
+
     } catch (error) {
       console.error("Failed to send message:", error);
     }
@@ -143,15 +173,32 @@ const ChatWindow = () => {
                 <div key={index} className={`flex ${msg.senderId === loginUserId ? "justify-end" : "justify-start"}`}>
                   <div
                     className={`p-3 rounded-lg shadow max-w-sm w-fit break-words whitespace-pre-wrap ${msg.senderId === loginUserId
-                        ? "bg-blue-500 text-white rounded-br-none"
-                        : "bg-gray-300 text-black rounded-bl-none"
+                      ? "bg-blue-500 text-white rounded-br-none"
+                      : "bg-gray-300 text-black rounded-bl-none"
                       }`}
                   >
-                    <p className="text-sm">{msg.text}</p>
+                    <p className="text-sm" onClick={() => openDeleteModal(msg)}>{msg.text}</p>
                     <span className="text-xs opacity-70 block text-right mt-1">
                       {new Date(msg.createdAt).toLocaleTimeString()}
                     </span>
                   </div>
+
+                  {showModal && selectedMessage && (
+                    <div className="fixed inset-0 bg-transparent bg-opacity-50 flex justify-center items-center">
+                      <div className="bg-white p-6 rounded-lg shadow-lg">
+                        <p className="mb-4">Delete this message?</p>
+                        {selectedMessage.senderId === loginUserId ? (
+                          <>
+                            <button onClick={() => handleDelete("deleteForEveryone")} className="bg-red-500 text-white px-4 py-2 rounded mr-2">Delete for Everyone</button>
+                            <button onClick={() => handleDelete("deleteForMe")} className="bg-yellow-500 text-white px-4 py-2 rounded mr-2">Delete for Me</button>
+                          </>
+                        ) : (
+                          <button onClick={() => handleDelete("deleteForMe")} className="bg-yellow-500 text-white px-4 py-2 rounded mr-2">Delete for Me</button>
+                        )}
+                        <button onClick={closeModal} className="bg-gray-300 px-4 py-2 rounded">Cancel</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             <div ref={messagesEndRef} />

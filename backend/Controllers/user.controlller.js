@@ -99,6 +99,7 @@ const logout = async(req, res)=>{
   
   return res.status(200).json({ message: "Logout successful" });
 }
+
 const createConversation = async (req, res) => {
     try {
         const senderId = new mongoose.Types.ObjectId(req.user._id);
@@ -154,8 +155,6 @@ const createConversation = async (req, res) => {
     }
 };
 
-
-
 const sendMessage = async (req, res) => {
     try {
         const senderId = req.user._id; // Extract sender ID from middleware
@@ -187,7 +186,8 @@ const sendMessage = async (req, res) => {
         const message = new Message({
             senderId: new mongoose.Types.ObjectId(senderId),
             receiverId: new mongoose.Types.ObjectId(receiverId),
-            text
+            text,
+            conversationId : room
         });
 
         await message.save(); // Save message to MongoDB
@@ -226,5 +226,9 @@ const getAllUsers = async (req, res) => {
 
 }
 
+const deleteMessage = async(req, res) => {
 
-export { signup, login, createConversation, sendMessage, getAllUsers , logout}
+}
+
+
+export { signup, login, createConversation, sendMessage, getAllUsers , logout, deleteMessage}

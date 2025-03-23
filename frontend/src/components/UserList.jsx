@@ -46,6 +46,7 @@ const UserList = () => {
           headers: { "Content-Type": "application/json" },
         }
       );
+      
       dispatch(previousMessages(res.data));
     } catch (error) {
       console.error("Error creating conversation:", error);
