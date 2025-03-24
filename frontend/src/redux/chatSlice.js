@@ -36,8 +36,18 @@ const chatSlice = createSlice({
         console.error("Invalid messages format:", messages);
       }
     },
+
+
+    removeMessage: (state, action) => {
+      const { messageId } = action.payload;
+      const index = state.messages.findIndex(msg => msg._id === messageId);
+      console.log(index);
+      if (index !== -1) {
+        state.messages.splice(index, 1); // ✅ Correct usage of splice
+      }
+    }
   },
 });
 
-export const { selectUser, addMessage, previousMessages } = chatSlice.actions;
+export const { selectUser, addMessage, previousMessages, removeMessage } = chatSlice.actions;
 export default chatSlice.reducer;

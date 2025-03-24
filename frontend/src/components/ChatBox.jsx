@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
-import { addMessage } from "../redux/chatSlice";
+import { addMessage,removeMessage } from "../redux/chatSlice";
 import { useSocketContext } from "../Context/SocketContext";
 import notificationSound from "../assets/sounds/NotificationSound.mp3";
 
@@ -29,21 +29,20 @@ const ChatWindow = () => {
     setSelectedMessage(null);
   };
 
-  // const handleDelete = async (actionType) => {
-  //   if (!selectedMessage) return;
-
-  //   try {
-  //     await axios.delete(`http://localhost:8000/messages/${selectedMessage._id}`, {
-  //       data: { actionType, userId: loginUserId },
-  //       withCredentials: true,
-  //     });
-
-  //     dispatch(removeMessage({ messageId: selectedMessage._id }));
-  //     closeModal();
-  //   } catch (error) {
-  //     console.error("Failed to delete message:", error);
-  //   }
-  // };
+  const handleDelete = async (actionType) => {
+    if (!selectedMessage) return;
+    try {
+      await axios.delete(`http://localhost:8000/user/messages/${selectedMessage._id}`, {
+        data: { actionType, userId: loginUserId, selectUserId:selectedMessage.receiverId },
+        withCredentials: true,
+      });
+      
+      dispatch(removeMessage({ messageId: selectedMessage._id }));
+      closeModal();
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  };
 
 
   // Auto-scroll to the latest message
@@ -70,12 +69,16 @@ const ChatWindow = () => {
       setTypingUser(null);
     });
 
-
+    socket.on('messageDeleted', ( messageId ) => {
+      dispatch(removeMessage({ messageId }));
+    });
+    
 
     return () => {
       socket?.off("newMessage");
       socket.off("userTyping");
       socket.off("stopTyping");
+      socket.off('messageDeleted');
     };
   }, [socket, dispatch]);
 
@@ -124,12 +127,6 @@ const ChatWindow = () => {
       receiverId: selectedUser?._id, // Stop typing notification for selected user
     });
   };
-
-  const handleDelete = (messageId) => {
-    // console.log("Delete");
-    // console.log(messageId);
-
-  }
 
   const [typingUser, setTypingUser] = useState(null);
 

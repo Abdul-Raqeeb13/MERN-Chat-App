@@ -94,10 +94,10 @@ const login = async (req, res) => {
     });
 };
 
-const logout = async(req, res)=>{
+const logout = async (req, res) => {
     res.clearCookie("accessToken"); // Clears auth token if stored in cookies
-  
-  return res.status(200).json({ message: "Logout successful" });
+
+    return res.status(200).json({ message: "Logout successful" });
 }
 
 const createConversation = async (req, res) => {
@@ -121,8 +121,8 @@ const createConversation = async (req, res) => {
                 }
             }
         ]);
-        
-        
+
+
 
         // If no conversation exists, create a new one
         if (room.length === 0) {
@@ -187,7 +187,7 @@ const sendMessage = async (req, res) => {
             senderId: new mongoose.Types.ObjectId(senderId),
             receiverId: new mongoose.Types.ObjectId(receiverId),
             text,
-            conversationId : room
+            conversationId: room
         });
 
         await message.save(); // Save message to MongoDB
@@ -221,14 +221,61 @@ const getAllUsers = async (req, res) => {
     return res.status(200).json({
         success: true,
         users
-    }); 
+    });
 
 
 }
 
-const deleteMessage = async(req, res) => {
+const deleteMessage = async (req, res) => {
 
+    const { id } = req.params;
+    const { actionType, userId, selectUserId } = req.body; // Access data
+
+    const receiverSocketId = getReceiverSocketId(selectUserId)
+
+    const message = await Message.findById(id)
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    if (actionType == "deleteForEveryone") {
+        if (message.senderId.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to delete this message for everyone' });
+        }
+
+        const result = await Conversation.updateOne(
+            { _id: message.conversationId },
+            { $pull: { messagesId: id } } // Removes matching ObjectId
+        );
+
+        if (result.modifiedCount === 0) {
+            console.log("Message not found");
+            return res.status(404).json({ message: 'Message not found' });
+        }
+
+        await Message.findByIdAndDelete(id)
+        io.to(receiverSocketId).emit('messageDeleted',  id );
+        return res.status(200).json({ message: 'Message deleted successfully' });
+    }
+
+    else if (actionType == "deleteForMe") {
+
+        if (message.senderId.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to delete this message for everyone' });
+        }
+
+
+        
+        const updatedDoc = await Message.findByIdAndUpdate( id,
+            {senderDelete : true},
+            { new: true, } // Options
+          );
+          console.log('Updated Document:', updatedDoc);
+
+        io.to(userId).emit('deleteForMe',  id );
+        // return res.status(200).json({ message: 'Message deleted successfully' });
+    }
+
+    
 }
 
 
-export { signup, login, createConversation, sendMessage, getAllUsers , logout, deleteMessage}
+export { signup, login, createConversation, sendMessage, getAllUsers, logout, deleteMessage }
