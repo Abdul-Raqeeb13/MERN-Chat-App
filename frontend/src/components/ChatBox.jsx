@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
-import { addMessage,removeMessage } from "../redux/chatSlice";
+import { addMessage, removeMessage, updateDeleteMesageForMe } from "../redux/chatSlice";
 import { useSocketContext } from "../Context/SocketContext";
 import notificationSound from "../assets/sounds/NotificationSound.mp3";
 
@@ -30,23 +30,53 @@ const ChatWindow = () => {
   };
 
   const handleDelete = async (actionType) => {
+
     if (!selectedMessage) return;
-    try {
-      await axios.delete(`http://localhost:8000/user/messages/${selectedMessage._id}`, {
-        data: { actionType, userId: loginUserId, selectUserId:selectedMessage.receiverId },
-        withCredentials: true,
-      });
-      
-      dispatch(removeMessage({ messageId: selectedMessage._id }));
-      closeModal();
-    } catch (error) {
-      console.error("Failed to delete message:", error);
+    // deleteForMeReceiver
+    if (actionType == "deleteForMe") {
+      try {
+        await axios.delete(`http://localhost:8000/user/messages/${selectedMessage._id}`, {
+          data: { actionType, userId: loginUserId, selectUserId: selectedMessage.receiverId },
+          withCredentials: true,
+        });
+        dispatch(updateDeleteMesageForMe({ updatedMessageId: selectedMessage._id, deleteSide : "senderDelete" })); // Optimistic UI update
+
+        closeModal();
+      } catch (error) {
+        console.error("Failed to delete message:", error);
+      }
     }
+    else if (actionType == "deleteForMeReceiver") {
+
+      try {
+        await axios.delete(`http://localhost:8000/user/messages/${selectedMessage._id}`, {
+          data: { actionType, userId: loginUserId, selectUserId: selectedMessage.receiverId },
+          withCredentials: true,
+        });
+        dispatch(updateDeleteMesageForMe({ updatedMessageId: selectedMessage._id, deleteSide : "receiverDelete" })); // Optimistic UI update
+
+        closeModal();
+      } catch (error) {
+        console.error("Failed to delete message:", error);
+      }
+    }
+    else if (actionType == "deleteForEveryone") {
+      try {
+        await axios.delete(`http://localhost:8000/user/messages/${selectedMessage._id}`, {
+          data: { actionType, userId: loginUserId, selectUserId: selectedMessage.receiverId },
+          withCredentials: true,
+        });
+
+        dispatch(removeMessage({ messageId: selectedMessage._id }));
+        closeModal();
+      } catch (error) {
+        console.error("Failed to delete message:", error);
+      }
+    }
+
   };
 
-
   // Auto-scroll to the latest message
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -69,10 +99,12 @@ const ChatWindow = () => {
       setTypingUser(null);
     });
 
-    socket.on('messageDeleted', ( messageId ) => {
+    socket.on('messageDeleted', (messageId) => {
       dispatch(removeMessage({ messageId }));
     });
-    
+
+    // socket.on('deleteForMe', (updatedata))
+
 
     return () => {
       socket?.off("newMessage");
@@ -174,7 +206,11 @@ const ChatWindow = () => {
                       : "bg-gray-300 text-black rounded-bl-none"
                       }`}
                   >
-                    <p className="text-sm" onClick={() => openDeleteModal(msg)}>{msg.text}</p>
+                    <p className="text-sm" onClick={() => openDeleteModal(msg)}>
+                      {(msg.senderDelete && msg.senderId === loginUserId) || (msg.receiverDelete && msg.senderId !== loginUserId)
+                        ? <p>You deleted this message</p>
+                        : msg.text}
+                    </p>
                     <span className="text-xs opacity-70 block text-right mt-1">
                       {new Date(msg.createdAt).toLocaleTimeString()}
                     </span>
@@ -190,7 +226,7 @@ const ChatWindow = () => {
                             <button onClick={() => handleDelete("deleteForMe")} className="bg-yellow-500 text-white px-4 py-2 rounded mr-2">Delete for Me</button>
                           </>
                         ) : (
-                          <button onClick={() => handleDelete("deleteForMe")} className="bg-yellow-500 text-white px-4 py-2 rounded mr-2">Delete for Me</button>
+                          <button onClick={() => handleDelete("deleteForMeReceiver")} className="bg-yellow-500 text-white px-4 py-2 rounded mr-2">Delete for Me</button>
                         )}
                         <button onClick={closeModal} className="bg-gray-300 px-4 py-2 rounded">Cancel</button>
                       </div>

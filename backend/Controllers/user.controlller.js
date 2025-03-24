@@ -261,17 +261,34 @@ const deleteMessage = async (req, res) => {
         if (message.senderId.toString() !== userId) {
             return res.status(403).json({ message: 'You are not authorized to delete this message for everyone' });
         }
-
-
-        
         const updatedDoc = await Message.findByIdAndUpdate( id,
             {senderDelete : true},
             { new: true, } // Options
           );
           console.log('Updated Document:', updatedDoc);
+          
+        //   const loginUserSocketId = getReceiverSocketId(userId)
 
-        io.to(userId).emit('deleteForMe',  id );
-        // return res.status(200).json({ message: 'Message deleted successfully' });
+
+        // io.to(loginUserSocketId).emit('deleteForMe',  updatedDoc );
+        return res.status(200).json({ message: 'Message deleted successfully' });
+    }
+    else if (actionType == "deleteForMeReceiver") {
+
+        if (message.receiverId.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to delete this message for everyone' });
+        }
+        const updatedDoc = await Message.findByIdAndUpdate( id,
+            {receiverDelete : true},
+            { new: true, } // Options
+          );
+          console.log('Updated Document:', updatedDoc);
+          
+        //   const loginUserSocketId = getReceiverSocketId(userId)
+
+
+        // io.to(loginUserSocketId).emit('deleteForMe',  updatedDoc );
+        return res.status(200).json({ message: 'Message deleted successfully' });
     }
 
     

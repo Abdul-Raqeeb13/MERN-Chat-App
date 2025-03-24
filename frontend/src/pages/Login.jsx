@@ -23,16 +23,16 @@ const Login = () => {
         }
       );
 
-      
+
       if (response.status === 200) {
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("user", JSON.stringify(response.data.userData));
-      
+
         console.log("User logged in, navigating..."); // Debugging
         window.location.reload(); // Reload the page to reset state
         // navigate("/"); // Redirect after login
       }
-       else {
+      else {
         setError(response.data.message || "Login failed. Try again.");
       }
     } catch (error) {
