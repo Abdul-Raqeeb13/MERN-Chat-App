@@ -34,6 +34,7 @@ const ChatWindow = () => {
     if (!selectedMessage) return;
     // deleteForMeReceiver
     if (actionType == "deleteForMe") {
+
       try {
         await axios.delete(`http://localhost:8000/user/messages/${selectedMessage._id}`, {
           data: { actionType, userId: loginUserId, selectUserId: selectedMessage.receiverId },

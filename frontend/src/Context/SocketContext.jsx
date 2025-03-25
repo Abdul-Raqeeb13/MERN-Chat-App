@@ -25,7 +25,6 @@ export const SocketContextProvider = ({ children }) => {
 
             // Get online users from the server and set the state variable onlineUsers to the list of online users 
             socket.on("getOnlineUsers", (users) => {
-                
                 setOnlineUsers(users);
             })
 

@@ -23,7 +23,7 @@ const server = createServer(app);
 const io = new Server(server, {
     cors: {
         origin: "http://localhost:5173",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST", "DELETE"]
     }
 });
 
@@ -76,6 +76,11 @@ io.on("connection", (socket) => {
         }
     });
 
+    // Handle disconnection
+    socket.on("disconnect", () => {
+        delete userSocketMap[userId];
+        io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    });
 });
 
 export { app, io, server };
