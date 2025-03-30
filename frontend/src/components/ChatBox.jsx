@@ -167,15 +167,14 @@ const ChatWindow = () => {
 
   // Send message function
   const sendMessage = async () => {
-    const messageText = inputRef.current.value.trim(); // 🔹 Get value from ref
-    if (!selectedUser) return;
+    const messageText = inputRef.current.value.trim();
+    if (!selectedUser && !messageText && !image) return;
 
     const formData = new FormData();
     formData.append("text", messageText);
 
-    // ✅ Append the image **only if it exists**
-    if (image) {
-      formData.append("image", image);
+    if (image?.file) {
+      formData.append("image", image.file);
     }
 
     try {
@@ -185,22 +184,20 @@ const ChatWindow = () => {
         { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      console.log("Response:", res.data);
-
-      dispatch(addMessage({ message: res.data.data })); // Optimistic UI update
-      inputRef.current.value = ""; // 🔹 Clear input field without triggering re-render
-      setImage("")
+      dispatch(addMessage({ message: res.data.data }));
+      inputRef.current.value = "";
+      setImage(null);
     } catch (error) {
-      console.error("Failed to send message:", error.response?.data || error.message);
+      console.error("Failed to send message:", error);
     }
   };
+
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      console.log("Selected image:", file);
-      setImage(file)
-      // You can send the image to the backend or display it in the chat
+      const imageUrl = URL.createObjectURL(file); // Create preview URL
+      setImage({ file, preview: imageUrl });
     }
   };
 
@@ -270,6 +267,19 @@ const ChatWindow = () => {
             <div ref={messagesEndRef} />
           </div>
 
+
+          {/* Image Preview Section */}
+          {image && (
+  <div className="relative inline-block">
+    <button
+      onClick={() => setImage(null)}
+      className="absolute top-0 right-220 bg-red-500 text-white text-xs p-1 rounded-full transform translate-x-1/2 -translate-y-1/2"
+    >
+      ✕
+    </button>
+    <img src={image.preview} alt="Selected" className="w-20 h-20 rounded-lg shadow-md" />
+  </div>
+)}
 
 
           {/* Message Input Section */}
