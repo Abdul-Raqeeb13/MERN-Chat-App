@@ -5,6 +5,7 @@ import axios from "axios";
 import { addMessage, removeMessage, updateDeleteMesageForMe } from "../redux/chatSlice";
 import { useSocketContext } from "../Context/SocketContext";
 import notificationSound from "../assets/sounds/NotificationSound.mp3";
+import { FaFolderOpen } from "react-icons/fa";
 
 const ChatWindow = () => {
   const selectedUser = useSelector((state) => state.chat.selectedUser);
@@ -13,8 +14,9 @@ const ChatWindow = () => {
   const loginUser = JSON.parse(localStorage.getItem("user"));
   const loginUserId = loginUser?._id;
   const { socket } = useSocketContext();
-
+  const [image, setImage] = useState()
   const inputRef = useRef(null); // 🔹 Reference for input field
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null); // 🔹 Reference for auto-scroll
   const [showModal, setShowModal] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
@@ -40,7 +42,7 @@ const ChatWindow = () => {
           data: { actionType, userId: loginUserId, selectUserId: selectedMessage.receiverId },
           withCredentials: true,
         });
-        dispatch(updateDeleteMesageForMe({ updatedMessageId: selectedMessage._id, deleteSide : "senderDelete" })); // Optimistic UI update
+        dispatch(updateDeleteMesageForMe({ updatedMessageId: selectedMessage._id, deleteSide: "senderDelete" })); // Optimistic UI update
 
         closeModal();
       } catch (error) {
@@ -54,7 +56,7 @@ const ChatWindow = () => {
           data: { actionType, userId: loginUserId, selectUserId: selectedMessage.receiverId },
           withCredentials: true,
         });
-        dispatch(updateDeleteMesageForMe({ updatedMessageId: selectedMessage._id, deleteSide : "receiverDelete" })); // Optimistic UI update
+        dispatch(updateDeleteMesageForMe({ updatedMessageId: selectedMessage._id, deleteSide: "receiverDelete" })); // Optimistic UI update
 
         closeModal();
       } catch (error) {
@@ -79,7 +81,7 @@ const ChatWindow = () => {
 
   // Auto-scroll to the latest message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
   // Listen for incoming messages
@@ -166,22 +168,42 @@ const ChatWindow = () => {
   // Send message function
   const sendMessage = async () => {
     const messageText = inputRef.current.value.trim(); // 🔹 Get value from ref
-    if (!messageText || !selectedUser) return;
+    if (!selectedUser) return;
+
+    const formData = new FormData();
+    formData.append("text", messageText);
+
+    // ✅ Append the image **only if it exists**
+    if (image) {
+      formData.append("image", image);
+    }
 
     try {
       const res = await axios.post(
         `http://localhost:8000/user/sendMessage/${selectedUser._id}`,
-        { text: messageText },
-        { withCredentials: true, headers: { "Content-Type": "application/json" } }
+        formData,
+        { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
       );
+
+      console.log("Response:", res.data);
+
       dispatch(addMessage({ message: res.data.data })); // Optimistic UI update
-
       inputRef.current.value = ""; // 🔹 Clear input field without triggering re-render
-
+      setImage("")
     } catch (error) {
-      console.error("Failed to send message:", error);
+      console.error("Failed to send message:", error.response?.data || error.message);
     }
   };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      console.log("Selected image:", file);
+      setImage(file)
+      // You can send the image to the backend or display it in the chat
+    }
+  };
+
 
   return (
     <div className="w-3/4 flex flex-col h-screen bg-gray-100 shadow-lg rounded-lg">
@@ -207,11 +229,21 @@ const ChatWindow = () => {
                       : "bg-gray-300 text-black rounded-bl-none"
                       }`}
                   >
-                    <p className="text-sm" onClick={() => openDeleteModal(msg)}>
-                      {(msg.senderDelete && msg.senderId === loginUserId) || (msg.receiverDelete && msg.senderId !== loginUserId)
-                        ? <p>You deleted this message</p>
-                        : msg.text}
-                    </p>
+                    <div className="message-container" onClick={() => openDeleteModal(msg)}>
+                      {(msg.senderDelete && msg.senderId === loginUserId) || (msg.receiverDelete && msg.senderId !== loginUserId) ? (
+                        <p className="text-sm">You deleted this message</p>
+                      ) : (
+                        <>
+                          {/* ✅ Show Image if exists */}
+                          {msg.imgLink && <img src={msg.imgLink} alt="Message Image" className="w-40 h-auto rounded-lg mb-2" />}
+
+                          {/* ✅ Show Text only if it's not empty/null */}
+                          {msg.text?.trim() && <p className="text-sm">{msg.text}</p>}
+                        </>
+                      )}
+                    </div>
+
+
                     <span className="text-xs opacity-70 block text-right mt-1">
                       {new Date(msg.createdAt).toLocaleTimeString()}
                     </span>
@@ -238,8 +270,16 @@ const ChatWindow = () => {
             <div ref={messagesEndRef} />
           </div>
 
+
+
           {/* Message Input Section */}
           <div className="p-4 bg-white flex items-center border-t rounded-b-lg">
+            <button
+              onClick={() => fileInputRef.current.click()}
+              className="p-3 m-2 bg-blue-500 text-white rounded-full hover:bg-blue-600"
+            >
+              <FaFolderOpen size={20} />
+            </button>
             <input
               type="text"
               ref={inputRef}
@@ -248,6 +288,16 @@ const ChatWindow = () => {
               // 🔹 Set ref instead of useState
               className="flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 text-gray-700"
               placeholder="Type a message..."
+            />
+
+
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              accept="image/*"
+              onChange={handleImageSelect}
             />
             <button
               onClick={sendMessage}

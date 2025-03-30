@@ -3,7 +3,7 @@ import { User } from "../Models/user.model.js";
 import { Conversation } from "../Models/conversation.model.js";
 import { Message } from "../Models/message.model.js";
 import { getReceiverSocketId, io } from "../Socket/socket.js";
-
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const signup = async (req, res) => {
 
@@ -156,19 +156,25 @@ const createConversation = async (req, res) => {
 };
 
 const sendMessage = async (req, res) => {
-    try {
-        const senderId = req.user._id; // Extract sender ID from middleware
-        const receiverId = req.params.id; // Extract receiver ID from request params
-        const { text } = req.body; // Extract text from request body
+    let imageUrl = null;
 
-        if (!senderId || !receiverId || !text) {
+    if (req.file) {
+        const imageUpload = await uploadOnCloudinary(req.file.path);
+        imageUrl = imageUpload?.url || null;
+    }
+
+    try {
+        const senderId = req.user._id;
+        const receiverId = req.params.id;
+        const text = req.body.text || "";  // ✅ Default to empty string
+
+        if (!senderId || !receiverId || (!text && !imageUrl)) {  
             return res.status(400).json({
                 success: false,
-                message: "Sender ID, Receiver ID, and message text are required.",
+                message: "Message text or image is required.",
             });
         }
 
-        // ✅ Find or create a conversation
         let room = await Conversation.findOne({
             participants: { $all: [senderId, receiverId] }
         });
@@ -178,27 +184,24 @@ const sendMessage = async (req, res) => {
                 participants: [senderId, receiverId],
                 messagesId: []
             });
-
             await room.save();
         }
 
-        // ✅ Create a new message document
         const message = new Message({
-            senderId: new mongoose.Types.ObjectId(senderId),
-            receiverId: new mongoose.Types.ObjectId(receiverId),
-            text,
-            conversationId: room
+            senderId,
+            receiverId,
+            text,  
+            imgLink: imageUrl,  
+            conversationId: room._id  
         });
 
-        await message.save(); // Save message to MongoDB
-
-        // ✅ Add message to the conversation
+        await message.save();
         room.messagesId.push(message._id);
         await room.save();
 
-        const receiverSocketId = getReceiverSocketId(receiverId)
+        const receiverSocketId = getReceiverSocketId(receiverId);
         if (receiverSocketId) {
-            io.to(receiverSocketId).emit("newMessage", message)
+            io.to(receiverSocketId).emit("newMessage", message);
         }
 
         return res.status(200).json({
@@ -215,6 +218,8 @@ const sendMessage = async (req, res) => {
         });
     }
 };
+
+
 
 const getAllUsers = async (req, res) => {
     const users = await User.find({}).select("-password");
@@ -265,12 +270,6 @@ const deleteMessage = async (req, res) => {
             {senderDelete : true},
             { new: true, } // Options
           );
-          console.log('Updated Document:', updatedDoc);
-          
-        //   const loginUserSocketId = getReceiverSocketId(userId)
-
-
-        // io.to(loginUserSocketId).emit('deleteForMe',  updatedDoc );
         return res.status(200).json({ message: 'Message deleted successfully' });
     }
     else if (actionType == "deleteForMeReceiver") {
@@ -282,12 +281,6 @@ const deleteMessage = async (req, res) => {
             {receiverDelete : true},
             { new: true, } // Options
           );
-          console.log('Updated Document:', updatedDoc);
-          
-        //   const loginUserSocketId = getReceiverSocketId(userId)
-
-
-        // io.to(loginUserSocketId).emit('deleteForMe',  updatedDoc );
         return res.status(200).json({ message: 'Message deleted successfully' });
     }
 
